@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-
 import Post from './Post';
 import NewPost from './NewPost';
 import Modal from './Modal';
@@ -17,35 +16,38 @@ function PostsList({ isPosting, onStopPosting }) {
 			setPosts(resData.posts);
 			setLoading(false);
 		}
-
 		fetchPosts();
 	}, []);
 
-	function addPostHandler(postData) {
-		async function addPost() {
-			setLoading(true);
-			await fetch('http://localhost:8080/posts', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify(postData)
-			});
-			setLoading(false);
-		}
+	async function addPostHandler(postData) {
+		const response = await fetch('http://localhost:8080/posts', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(postData)
+		});
+		const newPost = await response.json();
+		setPosts(prev => [newPost.post, ...prev]);
+	}
 
-		addPost();
-		setPosts((existingData) => [postData, ...existingData]);
+	async function deletePostHandler(postId) {
+		await fetch(`http://localhost:8080/posts/${postId}`, { method: 'DELETE' });
+		setPosts(prev => prev.filter(post => post.id !== postId));
+	}
+
+	async function editPostHandler(postId, updatedData) {
+		await fetch(`http://localhost:8080/posts/${postId}`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(updatedData)
+		});
+		setPosts(prev => prev.map(post => (post.id === postId ? { ...post, ...updatedData } : post)));
 	}
 
 	return (
 		<>
 			{isPosting && (
 				<Modal onCloseModal={onStopPosting}>
-					<NewPost
-						onCancel={onStopPosting}
-						onAddPost={addPostHandler}
-					/>
+					<NewPost onCancel={onStopPosting} onAddPost={addPostHandler} />
 				</Modal>
 			)}
 
@@ -53,21 +55,10 @@ function PostsList({ isPosting, onStopPosting }) {
 
 			{!loading && posts.length > 0 && (
 				<ul className='posts'>
-					{posts.map((post, index) => (
-						<Post
-							key={index}
-							author={post.author}
-							body={post.body}
-						/>
+					{posts.map(post => (
+						<Post key={post.id} {...post} onDelete={deletePostHandler} onEdit={editPostHandler} />
 					))}
 				</ul>
-			)}
-
-			{!loading && posts.length === 0 && (
-				<div style={{ textAlign: 'center', color: 'white' }}>
-					<h2>There is no post yet.</h2>
-					<p>Try to add some!</p>
-				</div>
 			)}
 		</>
 	);
